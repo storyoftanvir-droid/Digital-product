@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Digital Store - Ultra Premium User App</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Firebase SDK (Compat Version) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+    <style>
+        /* ================= 1. CORE SETTINGS (UNCHANGED) ================= */
+        :root {
+            --primary-color: #2563eb;
+            --primary-gradient: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+            --secondary-bg: #eff6ff;
+            --accent-color: #f59e0b;
+            --background-body: #f3f4f6;
+            --white: #ffffff;
+            --text-dark: #1f2937;
+            --text-muted: #6b7280;
+            --danger-color: #ef4444;
+            --success-color: #10b981;
+            --chat-user-bg: #dcf8c6;
+            --chat-admin-bg: #ffffff;
+            --nav-height: 75px;
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
+            --radius-md: 12px;
+            --radius-lg: 20px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; -webkit-tap-highlight-color: transparent; outline: none; }
+        body { background-color: var(--background-body); color: var(--text-dark); height: 100vh; overflow: hidden; font-size: 14px; }
+
+        /* Utilities */
+        .hidden { display: none !important; }
+        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Buttons & Inputs */
+        .btn { background: var(--primary-gradient); color: var(--white); border: none; padding: 14px 20px; border-radius: var(--radius-md); font-weight: 600; font-size: 15px; width: 100%; cursor: pointer; box-shadow: var(--shadow-md); display: flex; justify-content: center; align-items: center; gap: 10px; transition: transform 0.2s; }
+        .btn:active { transform: scale(0.97); }
+        .btn-outline { background: transparent; border: 2px solid var(--primary-color); color: var(--primary-color); box-shadow: none; }
+        
+        .form-group { margin-bottom: 12px; text-align: left; }
+        .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; }
+        .form-input { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: var(--radius-md); background: var(--white); font-size: 14px; }
+        .form-input:focus { border-color: var(--primary-color); }
+
+        /* Auth Screen */
+        #auth-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 25px; }
+        .auth-card { background: var(--white); padding: 40px 30px; border-radius: var(--radius-lg); width: 100%; max-width: 400px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .auth-logo i { font-size: 50px; color: var(--primary-color); margin-bottom: 15px; }
+        .auth-divider { margin: 25px 0; display: flex; align-items: center; color: var(--text-muted); font-size: 12px; }
+        .auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: #e5e7eb; }
+        .auth-divider span { padding: 0 10px; }
+        .auth-footer { margin-top: 20px; font-size: 13px; color: var(--text-muted); }
+        .auth-footer span { color: var(--primary-color); font-weight: 700; cursor: pointer; }
+
+        /* Banned Screen */
+        #banned-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--white); z-index: 20000; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 30px; text-align: center; }
+
+        /* App Structure */
+        #app-container { display: none; width: 100%; height: 100%; position: relative; }
+        #sticky-header { position: sticky; top: 0; z-index: 100; width: 100%; background: var(--white); }
+        
+        .discount-bar { background: #fff7ed; color: #c2410c; text-align: center; padding: 10px; font-size: 13px; font-weight: 700; display: none; }
+        .marquee-wrapper { background: var(--white); overflow: hidden; white-space: nowrap; padding: 10px 0; border-bottom: 1px solid #e5e7eb; }
+        .marquee-text { display: inline-block; padding-left: 100%; animation: scroll 15s linear infinite; font-weight: 500; }
+        @keyframes scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
+
+        /* --- SCROLL FIX HERE --- */
+        /* padding-bottom বাড়িয়ে 160px করা হয়েছে যাতে নেভিগেশন বার এবং বাটন কন্টেন্ট না ঢেকে দেয় */
+        #main-content-area { height: calc(100vh - var(--nav-height)); overflow-y: auto; padding-bottom: 160px; scroll-behavior: smooth; }
+
+        /* Home Page */
+        .video-cta-card { margin: 15px 20px; padding: 12px 15px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); border-radius: 16px; color: white; display: flex; align-items: center; gap: 12px; cursor: pointer; box-shadow: 0 8px 15px rgba(59, 130, 246, 0.3); }
+        .play-icon-box { font-size: 20px; background: rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 12px; }
+        
+        .section-heading { padding: 0 20px; margin: 20px 0 15px; font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+        .section-heading::before { content: ''; width: 5px; height: 20px; background: var(--primary-color); border-radius: 5px; }
+        
+        /* Products Grid */
+        .products-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; padding: 0 20px 20px; }
+        .product-card { background: var(--white); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow-md); position: relative; transition: transform 0.2s; }
+        .product-card:active { transform: scale(0.97); }
+        
+        .prod-img-box { width: 100%; aspect-ratio: 1/1; background: #f9fafb; position: relative; }
+        .prod-img { width: 100%; height: 100%; object-fit: cover; }
+        
+        .prod-info { padding: 12px; }
+        .prod-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        .price-container { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+        .prod-price { font-size: 16px; font-weight: 700; color: var(--primary-color); }
+        .old-price { font-size: 12px; color: #999; text-decoration: line-through; }
+        .discount-text { font-size: 10px; color: var(--danger-color); font-weight: 700; background: #fee2e2; padding: 2px 5px; border-radius: 4px; }
+
+        /* Cart & Orders */
+        .cart-list-container, .orders-list-container { padding: 0 20px; }
+        .cart-item-card { background: var(--white); padding: 12px; border-radius: 16px; display: flex; align-items: center; gap: 15px; margin-bottom: 12px; box-shadow: var(--shadow-md); }
+        .cart-item-img { width: 65px; height: 65px; border-radius: 10px; object-fit: cover; }
+        
+        .checkout-wrapper { margin: 25px 20px; background: var(--white); padding: 20px; border-radius: 20px; box-shadow: var(--shadow-md); }
+        .bkash-info-box { background: #eff6ff; border: 1px dashed var(--primary-color); padding: 12px; border-radius: 12px; text-align: center; margin-bottom: 20px; cursor: pointer; }
+        
+        .rejection-box { background: #fef2f2; border: 1px solid #fecaca; padding: 15px; margin: 15px 20px; border-radius: 10px; color: #991b1b; display: flex; gap: 10px; align-items: flex-start; }
+
+        .order-history-card { background: var(--white); padding: 18px; border-radius: 16px; margin-bottom: 15px; border-left: 5px solid #ccc; box-shadow: var(--shadow-md); }
+        .st-pending { border-color: var(--accent-color); }
+        .st-success { border-color: var(--success-color); }
+        .st-rejected { border-color: var(--danger-color); }
+
+        /* Chat */
+        #page-chat { position: fixed; top: 0; left: 0; width: 100%; height: calc(100vh - var(--nav-height)); background: #e5ddd5; z-index: 200; display: flex; flex-direction: column; }
+        .chat-top-bar { background: #075e54; color: white; padding: 15px 20px; font-weight: 600; display: flex; align-items: center; gap: 12px; }
+        .chat-scroll-area { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); padding-bottom: 90px; }
+        .chat-msg { max-width: 80%; padding: 10px 14px; border-radius: 12px; font-size: 14px; word-wrap: break-word; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .msg-me { background: var(--chat-user-bg); align-self: flex-end; border-top-right-radius: 0; }
+        .msg-admin { background: var(--chat-admin-bg); align-self: flex-start; border-top-left-radius: 0; }
+        
+        .chat-input-wrapper { position: fixed; bottom: var(--nav-height); left: 0; width: 100%; background: #f0f2f5; padding: 10px; display: flex; gap: 10px; border-top: 1px solid #ddd; z-index: 201; }
+        .chat-input-field { flex: 1; padding: 12px 20px; border-radius: 25px; border: none; }
+        .chat-send-btn { width: 48px; height: 48px; border-radius: 50%; background: #128C7E; color: white; border: none; display: flex; justify-content: center; align-items: center; font-size: 18px; }
+
+        /* Navbar */
+        .bottom-navbar { position: fixed; bottom: 0; left: 0; width: 100%; height: var(--nav-height); background: rgba(255,255,255,0.98); border-top: 1px solid #e5e7eb; display: flex; justify-content: space-around; align-items: center; z-index: 1000; }
+        .nav-link { display: flex; flex-direction: column; align-items: center; color: #9ca3af; font-size: 10px; width: 20%; }
+        .nav-link i { font-size: 22px; margin-bottom: 4px; }
+        .nav-link.active { color: var(--primary-color); font-weight: 700; }
+
+        /* Support Button */
+        .fab-support { 
+            position: fixed; 
+            bottom: 100px; 
+            right: 25px; 
+            width: 55px; height: 55px; 
+            background: var(--primary-color); 
+            border-radius: 50%; 
+            display: flex; justify-content: center; align-items: center; 
+            color: white; font-size: 24px; 
+            box-shadow: 0 5px 20px rgba(37, 99, 235, 0.4); 
+            z-index: 5000; 
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .support-options-menu { position: fixed; bottom: 165px; right: 30px; display: none; flex-direction: column; gap: 15px; z-index: 5000; }
+        .support-bubble { width: 45px; height: 45px; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; text-decoration: none; font-size: 20px; box-shadow: var(--shadow-md); }
+
+        /* Modal */
+        #product-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 3000; display: none; flex-direction: column; }
+        .modal-header { padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; }
+        .modal-scroll { padding: 20px; flex: 1; overflow-y: auto; }
+        .modal-image { width: 100%; border-radius: 16px; margin-bottom: 20px; }
+        .modal-footer { padding: 20px; border-top: 1px solid #eee; display: flex; gap: 15px; }
+        
+        /* Name Modal */
+        #name-setup-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; justify-content: center; align-items: center; padding: 20px; }
+    </style>
+</head>
+<body>
+
+    <!-- ================== BANNED SCREEN ================== -->
+    <div id="banned-screen" class="hidden">
+        <i class="fa-solid fa-ban" style="font-size:70px; color:var(--danger-color); margin-bottom:20px;"></i>
+        <h2>Account Suspended</h2>
+        <p style="color:#666; margin-top:10px;">অতিরিক্ত ভুল অর্ডারের কারণে আপনার অ্যাকাউন্ট বন্ধ।</p>
+        <button class="btn btn-outline" style="margin-top:30px; width:auto;" onclick="window.location.reload()">Reload App</button>
+    </div>
+
+    <!-- ================== AUTHENTICATION ================== -->
+    <div id="auth-container">
+        <div class="auth-card fade-in">
+            <div class="auth-logo"><i class="fa-solid fa-store"></i></div>
+            <h2 style="margin-bottom:30px;">Digital Store</h2>
+            
+            <div id="login-form">
+                <div class="form-group"><label class="form-label">Email</label><input id="l-email" class="form-input" placeholder="user@example.com"></div>
+                <div class="form-group"><label class="form-label">Password</label><input id="l-pass" class="form-input" type="password" placeholder="••••••••"></div>
+                <button class="btn" onclick="appLogin()">Login</button>
+                <div class="auth-divider"><span>OR</span></div>
+                <button class="btn btn-outline" onclick="appGoogleLogin()" style="color:#333; border-color:#ddd"><i class="fa-brands fa-google" style="color:#ea4335"></i> Login with Google</button>
+                <div class="auth-footer">No account? <span onclick="toggleAuth()">Sign Up</span></div>
+            </div>
+
+            <div id="signup-form" class="hidden">
+                <div class="form-group"><label class="form-label">Full Name</label><input id="r-name" class="form-input" placeholder="Your Name"></div>
+                <div class="form-group"><label class="form-label">Email</label><input id="r-email" class="form-input"></div>
+                <div class="form-group"><label class="form-label">Password</label><input id="r-pass" class="form-input" type="password"></div>
+                <button class="btn" onclick="appSignup()">Sign Up</button>
+                <div class="auth-footer">Have account? <span onclick="toggleAuth()">Login</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================== NAME SETUP MODAL ================== -->
+    <div id="name-setup-modal" class="hidden">
+        <div class="auth-card">
+            <h3>নাম সেট করুন</h3>
+            <p style="font-size:13px; color:#666; margin-bottom:20px;">অর্ডারের জন্য আপনার আসল নাম প্রয়োজন।</p>
+            <input id="setup-name" class="form-input" placeholder="আপনার নাম..." style="margin-bottom:20px;">
+            <button class="btn" onclick="saveGoogleName()">Save & Continue</button>
+        </div>
+    </div>
+
+    <!-- ================== MAIN APP ================== -->
+    <div id="app-container">
+        <!-- HEADER -->
+        <div id="sticky-header">
+            <div class="discount-bar" id="discount-note"></div>
+            <div class="marquee-wrapper"><span class="marquee-text" id="scroll-txt">Welcome...</span></div>
+        </div>
+
+        <!-- SCROLLABLE CONTENT -->
+        <div id="main-content-area">
+            
+            <!-- HOME -->
+            <div id="page-home" class="page-section fade-in">
+                <!-- Sleek Video Button -->
+                <div class="video-cta-card" onclick="openVideo()">
+                    <div class="play-icon-box"><i class="fa-solid fa-play"></i></div>
+                    <div><div style="font-weight:700; font-size:14px;">কিভাবে অর্ডার করবেন?</div><div style="font-size:11px;">ভিডিও দেখুন</div></div>
+                </div>
+
+                <div class="section-heading">Latest Products</div>
+                
+                <div id="product-grid" class="products-grid">
+                    <div style="grid-column:span 2; text-align:center; padding:50px;">Loading Products...</div>
+                </div>
+            </div>
+
+            <!-- CART -->
+            <div id="page-cart" class="hidden fade-in">
+                <div class="section-heading">Shopping Cart</div>
+                <div id="cart-items" class="cart-list-container"></div>
+                
+                <div id="checkout-panel" class="checkout-wrapper hidden">
+                    <div class="bkash-info-box" onclick="copyBkash()">
+                        <small>Send Money (bKash)</small>
+                        <div id="admin-bkash" style="font-size:22px; font-weight:700; color:#ef4444; margin:5px 0; user-select:all;">...</div>
+                        <small style="color:#2563eb;"><i class="fa-regular fa-copy"></i> Tap Number to Copy</small>
+                    </div>
+                    
+                    <div class="form-group"><label class="form-label">Total Amount</label><input id="ord-total" class="form-input" readonly style="font-weight:bold;"></div>
+                    <div class="form-group"><label class="form-label">Full Name</label><input id="ord-name" class="form-input" placeholder="Your Name"></div>
+                    
+                    <!-- EMAIL FIELD -->
+                    <div class="form-group">
+                        <label class="form-label">Delivery Email (Important)</label>
+                        <input id="ord-email" class="form-input" type="email" placeholder="product@gmail.com">
+                    </div>
+                    
+                    <div class="form-group"><label class="form-label">WhatsApp Number</label><input id="ord-phone" class="form-input" type="number" placeholder="017xxxxxxxx"></div>
+                    <div class="form-group"><label class="form-label">Transaction ID</label><input id="ord-trx" class="form-input" placeholder="TrxID (e.g. 8H6G7F...)"></div>
+                    
+                    <button class="btn" onclick="warnOrder()">Confirm Order</button>
+                    <!-- Extra spacer added dynamically by CSS padding -->
+                </div>
+            </div>
+
+            <!-- ORDERS -->
+            <div id="page-orders" class="hidden fade-in">
+                <div class="section-heading">Order History</div>
+                <!-- REJECTION WARNING -->
+                <div id="reject-warning" class="rejection-box hidden"></div>
+                <div id="order-list" class="orders-list-container"></div>
+            </div>
+
+            <!-- PROFILE -->
+            <div id="page-profile" class="hidden fade-in" style="text-align:center; padding:60px 20px;">
+                <i class="fa-solid fa-circle-user" style="font-size:80px; color:#ddd; margin-bottom:15px;"></i>
+                <h2 id="prof-name">User</h2>
+                <p id="prof-email" style="color:#666; margin-bottom:30px;">...</p>
+                <button class="btn btn-outline" style="max-width:200px; margin:0 auto;" onclick="appLogout()">Logout</button>
+            </div>
+
+        </div>
+
+        <!-- CHAT -->
+        <div id="page-chat" class="hidden">
+            <div class="chat-top-bar"><i class="fa-solid fa-headset"></i> Admin Support</div>
+            <div id="chat-msgs" class="chat-scroll-area"></div>
+            <div class="chat-input-wrapper">
+                <input id="chat-in" class="chat-input-field" placeholder="Message...">
+                <button class="chat-send-btn" onclick="sendMsg()"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SUPPORT FAB (Now Controlled by JS) -->
+    <div id="main-fab" class="fab-support" onclick="togSup()"><i class="fa-solid fa-headset"></i></div>
+    <div class="support-options-menu" id="sup-menu">
+        <a id="lnk-wa" target="_blank" class="support-bubble" style="background:#25D366"><i class="fa-brands fa-whatsapp"></i></a>
+        <a id="lnk-tg" target="_blank" class="support-bubble" style="background:#0088cc"><i class="fa-brands fa-telegram"></i></a>
+    </div>
+
+    <!-- BOTTOM NAV -->
+    <div class="bottom-navbar">
+        <div class="nav-link active" onclick="go('home')"><i class="fa-solid fa-house"></i> Home</div>
+        <div class="nav-link" onclick="go('cart')"><i class="fa-solid fa-cart-shopping"></i> Cart</div>
+        <div class="nav-link" onclick="go('orders')"><i class="fa-solid fa-box-open"></i> Orders</div>
+        <div class="nav-link" onclick="go('chat')"><i class="fa-solid fa-comments"></i> Chat</div>
+        <div class="nav-link" onclick="go('profile')"><i class="fa-solid fa-user"></i> Profile</div>
+    </div>
+
+    <!-- PRODUCT MODAL -->
+    <div id="product-modal">
+        <div class="modal-header"><h4>Details</h4><i class="fa-solid fa-xmark" onclick="closeM()" style="font-size:24px;"></i></div>
+        <div class="modal-scroll">
+            <img src="" id="m-img" class="modal-image">
+            <h2 id="m-title"></h2>
+            <h3 id="m-price" style="color:var(--primary-color);"></h3>
+            <p id="m-desc" style="color:#666; margin-top:10px;"></p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="mAdd()">Add Cart</button>
+            <button class="btn" onclick="mBuy()">Buy Now</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. FIREBASE CONFIG ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAQLHG2eBuVq9DA7QLb6Y85UgyZ6glX9gw",
+            authDomain: "digital-product-selling-68018.firebaseapp.com",
+            databaseURL: "https://digital-product-selling-68018-default-rtdb.firebaseio.com",
+            projectId: "digital-product-selling-68018",
+            storageBucket: "digital-product-selling-68018.firebasestorage.app",
+            messagingSenderId: "270094775631",
+            appId: "1:270094775631:web:e2008ad991ef91bab0813a"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
+
+        let currentUser = null;
+        let isBanned = false;
+        let globalSettings = {};
+        let products = [];
+        let currentProd = null;
+
+        // --- 2. AUTH LOGIC ---
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                checkBanStatus(user.uid);
+                
+                db.ref('users/' + user.uid).once('value', snapshot => {
+                    if (!snapshot.exists() || !snapshot.val().name) {
+                        document.getElementById('auth-container').classList.add('hidden');
+                        document.getElementById('name-setup-modal').classList.remove('hidden');
+                    } else {
+                        enterApp();
+                    }
+                });
+            } else {
+                currentUser = null;
+                document.getElementById('auth-container').classList.remove('hidden');
+                document.getElementById('app-container').style.display = 'none';
+                document.getElementById('main-fab').classList.add('hidden'); // Hide FAB on login
+            }
+        });
+
+        function toggleAuth() {
+            document.getElementById('login-form').classList.toggle('hidden');
+            document.getElementById('signup-form').classList.toggle('hidden');
+        }
+
+        function appLogin() {
+            const e = document.getElementById('l-email').value;
+            const p = document.getElementById('l-pass').value;
+            if(!e || !p) return alert("Please fill all fields");
+            auth.signInWithEmailAndPassword(e, p).catch(err => alert(err.message));
+        }
+
+        function appSignup() {
+            const n = document.getElementById('r-name').value;
+            const e = document.getElementById('r-email').value;
+            const p = document.getElementById('r-pass').value;
+            if(!n || !e || !p) return alert("Fill all fields");
+            
+            auth.createUserWithEmailAndPassword(e, p).then(c => {
+                c.user.updateProfile({displayName: n});
+                db.ref('users/' + c.user.uid).set({ name: n, email: e, isBanned: false });
+                localStorage.setItem('tmp_name', n);
+            }).catch(err => alert(err.message));
+        }
+
+        function appGoogleLogin() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider).catch(e => alert(e.message));
+        }
+
+        function saveGoogleName() {
+            const n = document.getElementById('setup-name').value;
+            if(!n) return alert("Name Required");
+            currentUser.updateProfile({displayName: n}).then(() => {
+                db.ref('users/' + currentUser.uid).update({ name: n, email: currentUser.email, isBanned: false });
+                localStorage.setItem('tmp_name', n);
+                document.getElementById('name-setup-modal').classList.add('hidden');
+                enterApp();
+            });
+        }
+
+        function appLogout() {
+            auth.signOut();
+            localStorage.removeItem('cart');
+            localStorage.removeItem('tmp_name');
+            window.location.reload();
+        }
+
+        // --- 3. APP LOGIC ---
+        function enterApp() {
+            document.getElementById('auth-container').classList.add('hidden');
+            document.getElementById('app-container').style.display = 'block';
+            
+            // Show FAB initially since we start at Home
+            document.getElementById('main-fab').classList.remove('hidden');
+
+            db.ref('users/' + currentUser.uid).once('value', s => {
+                const userData = s.val();
+                const name = userData ? userData.name : (currentUser.displayName || "User");
+                
+                document.getElementById('prof-name').innerText = name;
+                document.getElementById('prof-email').innerText = currentUser.email;
+                document.getElementById('ord-name').value = name;
+                document.getElementById('ord-email').value = currentUser.email;
+            });
+
+            loadData();
+        }
+
+        function checkBanStatus(uid) {
+            db.ref('users/' + uid).on('value', s => {
+                const d = s.val();
+                if(d && d.isBanned) {
+                    isBanned = true;
+                    document.getElementById('banned-screen').classList.remove('hidden');
+                    document.getElementById('app-container').style.display = 'none';
+                    document.getElementById('main-fab').classList.add('hidden');
+                } else {
+                    isBanned = false;
+                    document.getElementById('banned-screen').classList.add('hidden');
+                    const rej = d ? (d.consecutiveRejections || 0) : 0;
+                    const wBox = document.getElementById('reject-warning');
+                    
+                    if(rej > 0) {
+                        wBox.classList.remove('hidden');
+                        wBox.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="font-size:24px;"></i> <div>সতর্কতা: আপনার <b>${rej}</b> টি অর্ডার বাতিল হয়েছে। আর <b>${3-rej}</b> টি হলে ব্যান হবেন।</div>`;
+                    } else wBox.classList.add('hidden');
+                }
+            });
+        }
+
+        function loadData() {
+            // Settings
+            db.ref('settings').on('value', s => {
+                const d = s.val() || {};
+                globalSettings = d;
+                document.getElementById('scroll-txt').innerText = d.scrollingMessage || "Welcome";
+                document.getElementById('admin-bkash').innerText = d.bkashNumber || "...";
+                document.getElementById('lnk-wa').href = d.whatsapp || "#";
+                document.getElementById('lnk-tg').href = d.telegram || "#";
+                
+                const n = document.getElementById('discount-note');
+                if(d.allDiscount) {
+                    n.style.display = 'block';
+                    n.innerText = `🔥 ${d.discountText} - ${d.discountPercent}% OFF`;
+                } else n.style.display = 'none';
+                
+                renderProducts();
+            });
+
+            // Orders
+            db.ref('orders').on('value', s => {
+                const l = document.getElementById('order-list'); l.innerHTML = "";
+                if(s.val()) {
+                    const allOrders = [];
+                    s.forEach(c => {
+                        const ord = c.val();
+                        if(ord.userId === currentUser.uid) {
+                            allOrders.unshift({id: c.key, ...ord});
+                        }
+                    });
+
+                    if(allOrders.length > 0) {
+                        allOrders.forEach(o => {
+                            let c = o.status==='success'?'st-success':(o.status==='rejected'?'st-rejected':'st-pending');
+                            l.innerHTML += `
+                            <div class="order-history-card ${c}">
+                                <div style="display:flex; justify-content:space-between; font-weight:700; font-size:13px; margin-bottom:5px;">
+                                    <span>#${o.id.slice(-6)}</span><span>${o.status.toUpperCase()}</span>
+                                </div>
+                                <div style="font-size:12px; color:#666;">
+                                    ${o.items[0].title} ${o.items.length>1 ? '+ more' : ''}<br>
+                                    Total: ৳${o.totalAmount} | Trx: ${o.trxId}
+                                </div>
+                            </div>`;
+                        });
+                    } else {
+                        l.innerHTML = "<div style='text-align:center; padding:30px; color:#999'>No orders found</div>";
+                    }
+                } else l.innerHTML = "<div style='text-align:center; padding:30px; color:#999'>No orders yet</div>";
+            });
+
+            // Chat
+            db.ref('chats/' + currentUser.uid).on('value', s => {
+                const b = document.getElementById('chat-msgs'); b.innerHTML = "";
+                if(s.val()) {
+                    Object.values(s.val()).forEach(m => {
+                        const txt = m.text.replace(/\n/g, '<br>');
+                        b.innerHTML += `<div class="chat-msg ${m.sender==='user'?'msg-me':'msg-admin'}">${txt}</div>`;
+                    });
+                    b.scrollTop = b.scrollHeight;
+                }
+            });
+        }
+
+        // --- 4. PRODUCTS & CART ---
+        function renderProducts() {
+            db.ref('products').on('value', s => {
+                products = [];
+                const g = document.getElementById('product-grid'); 
+                
+                if(s.val()) {
+                    s.forEach(c => {
+                        const product = c.val();
+                        product.id = c.key;
+                        products.push(product);
+                    });
+
+                    let htmlContent = "";
+                    
+                    if(products.length > 0) {
+                        products.forEach(p => {
+                            const pr = calcPrice(p.price, p.discount);
+                            
+                            // PRICE DISPLAY LOGIC
+                            let priceHtml = "";
+                            if(pr.off > 0) {
+                                priceHtml = `
+                                    <div class="price-container">
+                                        <span class="prod-price">৳${pr.final}</span>
+                                        <span class="old-price">৳${p.price}</span>
+                                        <span class="discount-text">-${pr.off}%</span>
+                                    </div>
+                                `;
+                            } else {
+                                priceHtml = `<div class="prod-price">৳${p.price}</div>`;
+                            }
+
+                            htmlContent += `
+                            <div class="product-card" onclick="openM('${p.id}')">
+                                <div class="prod-img-box"><img src="${p.image}" class="prod-img"></div>
+                                <div class="prod-info">
+                                    <div class="prod-title">${p.title}</div>
+                                    ${priceHtml}
+                                </div>
+                            </div>`;
+                        });
+                        g.innerHTML = htmlContent;
+                    } else {
+                        g.innerHTML = "<div style='grid-column:span 2; text-align:center'>No Products Found</div>";
+                    }
+                } else {
+                    g.innerHTML = "<div style='grid-column:span 2; text-align:center'>No Products Added</div>";
+                }
+                renderCart();
+            });
+        }
+
+        function calcPrice(p, d) {
+            let off = 0;
+            if(globalSettings.allDiscount) off = parseInt(globalSettings.discountPercent);
+            else if(d > 0) off = parseInt(d);
+            return { final: off > 0 ? Math.floor(p - (p * off / 100)) : p, off: off };
+        }
+
+        function renderCart() {
+            const c = JSON.parse(localStorage.getItem('cart')) || [];
+            const l = document.getElementById('cart-items'); l.innerHTML = "";
+            let t = 0;
+            
+            if(c.length === 0) {
+                l.innerHTML = "<div style='text-align:center; padding:30px; color:#999'>Cart Empty</div>";
+                document.getElementById('checkout-panel').classList.add('hidden');
+                return;
+            }
+            document.getElementById('checkout-panel').classList.remove('hidden');
+
+            c.forEach((p, i) => {
+                const pr = calcPrice(p.price, p.discount);
+                t += pr.final;
+                l.innerHTML += `
+                <div class="cart-item-card">
+                    <img src="${p.image}" class="cart-item-img">
+                    <div style="flex:1"><div style="font-weight:600;">${p.title}</div><div style="color:blue;">৳${pr.final}</div></div>
+                    <i class="fa-solid fa-trash" style="color:red;" onclick="remC(${i})"></i>
+                </div>`;
+            });
+            document.getElementById('ord-total').value = "৳" + t;
+        }
+
+        // --- 5. ACTIONS ---
+        function openM(id) {
+            currentProd = products.find(x => x.id === id);
+            const pr = calcPrice(currentProd.price, currentProd.discount);
+            document.getElementById('m-img').src = currentProd.image;
+            document.getElementById('m-title').innerText = currentProd.title;
+            document.getElementById('m-price').innerText = "Tk " + pr.final;
+            document.getElementById('m-desc').innerText = currentProd.description;
+            document.getElementById('product-modal').style.display = 'flex';
+        }
+
+        function closeM() { document.getElementById('product-modal').style.display = 'none'; }
+        
+        function mAdd() {
+            let c = JSON.parse(localStorage.getItem('cart')) || [];
+            if(!c.find(x => x.id === currentProd.id)) {
+                c.push(currentProd);
+                localStorage.setItem('cart', JSON.stringify(c));
+                renderCart();
+                alert("Added to Cart");
+            }
+            closeM();
+        }
+        
+        function mBuy() { mAdd(); go('cart'); }
+        function remC(i) {
+            let c = JSON.parse(localStorage.getItem('cart'));
+            c.splice(i, 1);
+            localStorage.setItem('cart', JSON.stringify(c));
+            renderCart();
+        }
+
+        function warnOrder() {
+            if(isBanned) return alert("Account Suspended");
+            
+            const n = document.getElementById('ord-name').value;
+            const ph = document.getElementById('ord-phone').value;
+            const trx = document.getElementById('ord-trx').value;
+            const em = document.getElementById('ord-email').value;
+            
+            if(!n || !ph || !trx || !em) return alert("Please fill ALL fields including Email!");
+            
+            if(confirm("সতর্কতা: ভুল তথ্য দিলে অ্যাকাউন্ট ব্যান হবে। আপনি কি নিশ্চিত?")) {
+                const c = JSON.parse(localStorage.getItem('cart'));
+                let t = 0;
+                let itemNames = [];
+                const items = c.map(p => {
+                    const pr = calcPrice(p.price, p.discount);
+                    t += pr.final;
+                    itemNames.push(p.title);
+                    return {title: p.title, price: pr.final};
+                });
+                
+                const orderData = {
+                    userId: currentUser.uid, 
+                    userName: n, 
+                    userEmail: em, 
+                    userPhone: ph, 
+                    trxId: trx, 
+                    items: items, 
+                    totalAmount: t,
+                    status: 'pending', 
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                };
+                
+                // DATA SENT TO FIREBASE HERE
+                db.ref('orders').push(orderData).then(() => {
+                    localStorage.removeItem('cart');
+                    
+                    const autoMsg = `নতুন অর্ডার! 📦\nপণ্য: ${itemNames.join(", ")}\nনাম: ${n}\nফোন: ${ph}\nইমেইল: ${em}\nTrxID: ${trx}\nমোট: ৳${t}`;
+                    db.ref('chats/' + currentUser.uid).push({
+                        sender: 'user', 
+                        text: autoMsg, 
+                        timestamp: firebase.database.ServerValue.TIMESTAMP
+                    });
+
+                    setTimeout(() => {
+                        db.ref('chats/' + currentUser.uid).push({
+                            sender: 'admin', 
+                            text: "অর্ডার করার জন্য ধন্যবাদ! আপনার পেমেন্ট চেক করা হচ্ছে। ২৪ ঘন্টার মধ্যে ডেলিভারি পাবেন ইনশাআল্লাহ।", 
+                            timestamp: firebase.database.ServerValue.TIMESTAMP
+                        });
+                    }, 3000);
+
+                    renderCart();
+                    go('orders');
+                    alert("Order Placed Successfully!");
+                });
+            }
+        }
+
+        function sendMsg() {
+            const t = document.getElementById('chat-in').value;
+            if(t.trim()) {
+                db.ref('chats/' + currentUser.uid).push({
+                    sender: 'user', text: t, timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+                document.getElementById('chat-in').value = "";
+            }
+        }
+
+        function openVideo() {
+            if(globalSettings.youtubeLink) window.open(globalSettings.youtubeLink, '_blank');
+            else alert("No video link set by admin");
+        }
+
+        function copyBkash() {
+            const txt = document.getElementById('admin-bkash').innerText;
+            if(txt === "...") return;
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(txt).then(() => alert("Number Copied: " + txt));
+            } else {
+                const ta = document.createElement("textarea");
+                ta.value = txt;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand("copy");
+                document.body.removeChild(ta);
+                alert("Number Copied: " + txt);
+            }
+        }
+
+        function togSup() {
+            const m = document.getElementById('sup-menu');
+            m.style.display = (m.style.display === 'flex') ? 'none' : 'flex';
+        }
+
+        function go(page) {
+            document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+            const idx = ['home', 'cart', 'orders', 'chat', 'profile'].indexOf(page);
+            if(idx !== -1) document.querySelectorAll('.nav-link')[idx].classList.add('active');
+
+            // --- FAB CONTROL LOGIC ---
+            const fab = document.getElementById('main-fab');
+            const fabMenu = document.getElementById('sup-menu');
+            if(page === 'home') {
+                fab.classList.remove('hidden');
+            } else {
+                fab.classList.add('hidden');
+                fabMenu.style.display = 'none'; // Close menu if open
+            }
+
+            if(page === 'chat') {
+                document.getElementById('page-chat').classList.remove('hidden');
+                document.getElementById('sticky-header').classList.add('hidden');
+                document.getElementById('main-content-area').classList.add('hidden');
+                // Ensure FAB is hidden in chat
+                fab.classList.add('hidden');
+            } else {
+                document.getElementById('page-chat').classList.add('hidden');
+                document.getElementById('sticky-header').classList.remove('hidden');
+                document.getElementById('main-content-area').classList.remove('hidden');
+                
+                document.getElementById('page-home').classList.add('hidden');
+                document.getElementById('page-cart').classList.add('hidden');
+                document.getElementById('page-orders').classList.add('hidden');
+                document.getElementById('page-profile').classList.add('hidden');
+                
+                document.getElementById('page-' + page).classList.remove('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
