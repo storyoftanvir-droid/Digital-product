@@ -76,7 +76,9 @@
         .marquee-text { display: inline-block; padding-left: 100%; animation: scroll 15s linear infinite; font-weight: 500; }
         @keyframes scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
 
-        #main-content-area { height: calc(100vh - var(--nav-height)); overflow-y: auto; padding-bottom: 20px; }
+        /* --- SCROLL FIX HERE --- */
+        /* padding-bottom বাড়িয়ে 160px করা হয়েছে যাতে নেভিগেশন বার এবং বাটন কন্টেন্ট না ঢেকে দেয় */
+        #main-content-area { height: calc(100vh - var(--nav-height)); overflow-y: auto; padding-bottom: 160px; scroll-behavior: smooth; }
 
         /* Home Page */
         .video-cta-card { margin: 15px 20px; padding: 12px 15px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); border-radius: 16px; color: white; display: flex; align-items: center; gap: 12px; cursor: pointer; box-shadow: 0 8px 15px rgba(59, 130, 246, 0.3); }
@@ -134,8 +136,7 @@
         .nav-link i { font-size: 22px; margin-bottom: 4px; }
         .nav-link.active { color: var(--primary-color); font-weight: 700; }
 
-        /* --- SUPPORT BUTTON FIX --- */
-        /* Moved this to body level in HTML, but keeping style here */
+        /* Support Button */
         .fab-support { 
             position: fixed; 
             bottom: 100px; 
@@ -146,8 +147,9 @@
             display: flex; justify-content: center; align-items: center; 
             color: white; font-size: 24px; 
             box-shadow: 0 5px 20px rgba(37, 99, 235, 0.4); 
-            z-index: 5000; /* High Z-Index */
+            z-index: 5000; 
             cursor: pointer;
+            transition: all 0.3s ease;
         }
         .support-options-menu { position: fixed; bottom: 165px; right: 30px; display: none; flex-direction: column; gap: 15px; z-index: 5000; }
         .support-bubble { width: 45px; height: 45px; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; text-decoration: none; font-size: 20px; box-shadow: var(--shadow-md); }
@@ -259,6 +261,7 @@
                     <div class="form-group"><label class="form-label">Transaction ID</label><input id="ord-trx" class="form-input" placeholder="TrxID (e.g. 8H6G7F...)"></div>
                     
                     <button class="btn" onclick="warnOrder()">Confirm Order</button>
+                    <!-- Extra spacer added dynamically by CSS padding -->
                 </div>
             </div>
 
@@ -291,9 +294,9 @@
         </div>
     </div>
 
-    <!-- MOVED SUPPORT FAB OUTSIDE APP CONTAINER -->
-    <div class="fab-support" onclick="togSup()"><i class="fa-solid fa-headset"></i></div>
-    <div class="support-options-menu" id="sup-menu">
+    <!-- SUPPORT FAB (Now Controlled by JS) -->
+    <div id="main-fab" class="fab-support" onclick="togSup()"><i class="fa-solid fa-headset"></i></div>
+ <div class="support-options-menu" id="sup-menu">
         <a id="lnk-wa" target="_blank" class="support-bubble" style="background:#25D366"><i class="fa-brands fa-whatsapp"></i></a>
         <a id="lnk-tg" target="_blank" class="support-bubble" style="background:#0088cc"><i class="fa-brands fa-telegram"></i></a>
     </div>
@@ -361,6 +364,7 @@
                 currentUser = null;
                 document.getElementById('auth-container').classList.remove('hidden');
                 document.getElementById('app-container').style.display = 'none';
+                document.getElementById('main-fab').classList.add('hidden'); // Hide FAB on login
             }
         });
 
@@ -417,6 +421,9 @@
             document.getElementById('auth-container').classList.add('hidden');
             document.getElementById('app-container').style.display = 'block';
             
+            // Show FAB initially since we start at Home
+            document.getElementById('main-fab').classList.remove('hidden');
+
             db.ref('users/' + currentUser.uid).once('value', s => {
                 const userData = s.val();
                 const name = userData ? userData.name : (currentUser.displayName || "User");
@@ -437,6 +444,7 @@
                     isBanned = true;
                     document.getElementById('banned-screen').classList.remove('hidden');
                     document.getElementById('app-container').style.display = 'none';
+                    document.getElementById('main-fab').classList.add('hidden');
                 } else {
                     isBanned = false;
                     document.getElementById('banned-screen').classList.add('hidden');
@@ -534,7 +542,7 @@
                         products.forEach(p => {
                             const pr = calcPrice(p.price, p.discount);
                             
-                            // PRICE DISPLAY LOGIC (FIXED)
+                            // PRICE DISPLAY LOGIC
                             let priceHtml = "";
                             if(pr.off > 0) {
                                 priceHtml = `
@@ -584,8 +592,7 @@
                 l.innerHTML = "<div style='text-align:center; padding:30px; color:#999'>Cart Empty</div>";
                 document.getElementById('checkout-panel').classList.add('hidden');
                 return;
-            }
-            document.getElementById('checkout-panel').classList.remove('hidden');
+            }            document.getElementById('checkout-panel').classList.remove('hidden');
 
             c.forEach((p, i) => {
                 const pr = calcPrice(p.price, p.discount);
@@ -732,10 +739,22 @@
             const idx = ['home', 'cart', 'orders', 'chat', 'profile'].indexOf(page);
             if(idx !== -1) document.querySelectorAll('.nav-link')[idx].classList.add('active');
 
+            // --- FAB CONTROL LOGIC ---
+            const fab = document.getElementById('main-fab');
+            const fabMenu = document.getElementById('sup-menu');
+            if(page === 'home') {
+                fab.classList.remove('hidden');
+            } else {
+                fab.classList.add('hidden');
+                fabMenu.style.display = 'none'; // Close menu if open
+            }
+
             if(page === 'chat') {
                 document.getElementById('page-chat').classList.remove('hidden');
                 document.getElementById('sticky-header').classList.add('hidden');
                 document.getElementById('main-content-area').classList.add('hidden');
+                // Ensure FAB is hidden in chat
+                fab.classList.add('hidden');
             } else {
                 document.getElementById('page-chat').classList.add('hidden');
                 document.getElementById('sticky-header').classList.remove('hidden');
